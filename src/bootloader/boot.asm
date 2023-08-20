@@ -2,6 +2,8 @@ org 0x7C00
 bits 16
 
 %define ENDL 0x0D, 0x0A
+%define KERNEL_LOAD_ADDRESS 0x2000
+%define KERNEL_LOAD_OFFSET 0
 
 ;
 ; FAT12 Header
@@ -35,7 +37,176 @@ ebr_system_id:                  db "FAT12   "         ; 8 bytes
 
 
 start:
-    jmp main
+    ; setup data segments
+    mov ax, 0
+    mov ds, ax
+    mov es, ax
+
+    ; setup stack
+    mov ss, ax
+    mov sp, 0x7C00
+
+    push es 
+    push word .after
+    retf
+
+.after:
+
+    ; read from disk
+    ; BIOS puts the boot drive number in dl
+    mov [ebr_drive_number], dl
+
+    ; loading message
+    mov si, msg_loading
+    call puts
+
+    ; read drive parameters
+    push es
+    mov ah, 08h
+    int 13h
+    jc key_reboot
+    pop es
+
+    and cl, 0x3F                       ; cl = sectors per track
+    xor ch, ch                         ; ch = 0
+    mov [bdb_sectors_per_track], cx
+
+    inc dh                             ; dh = number of heads
+    mov [bdb_number_of_heads], dh
+
+    ; calculate LBA address of root directory
+    mov ax, [bdb_sectors_per_fat]      
+    mov bl, [bdb_number_of_fats]
+    xor bh, bh                         ; bh = 0
+    mul bx                             ; ax = sectors_per_fat * number_of_fats            
+    add ax, [bdb_reserved_sectors]     ; ax = LBA
+    push ax
+
+    ; calculate size of root directory
+    mov ax, [bdb_sectors_per_fat]
+    shl ax, 5                          ; ax = sectors_per_fat * 32
+    xor dx, dx                         ; dx = 0
+    div word [bdb_bytes_per_sector]    ; ax = number of sectors to read
+
+    test dx, dx                        ; check for remainder
+    jz .root_dir_after
+    inc ax                             ; ax = number of sectors to read + 1
+
+.root_dir_after:
+
+    ; safe size of root directory
+    mov [root_dir_size], ax
+
+    ; read root directory
+    mov cl, al                         ; cl = number of sectors to read
+    pop ax                             ; ax = LBA
+    mov dl, [ebr_drive_number]         ; dl = drive number
+    mov bx, buffer                     ; es:bx = buffer address
+    call disk_read
+
+    ; search for kernel.bin
+    xor bx, bx
+    mov di, buffer
+
+.search_kernel:
+    mov si, file_kernel_bin
+    mov cx, 11
+    push di
+    repe cmpsb
+    pop di
+    je .kernel_found
+
+    ; next entry
+    add di, 32
+    inc bx
+    cmp bx, [bdb_dir_entries_count]
+    jl .search_kernel
+
+    ; kernel not found
+    jmp kernel_not_found_error
+
+
+.kernel_found:
+
+    ; di = address to first cluster
+    mov ax, [di + 26]
+    mov [kernel_cluster], ax
+
+    ; load FAT 
+    mov ax, [bdb_reserved_sectors]
+    mov bx, buffer
+    mov cl, [bdb_sectors_per_fat]
+    mov dl, [ebr_drive_number]
+    call disk_read
+
+    ; load kernel
+    mov bx, KERNEL_LOAD_ADDRESS
+    mov es, bx
+    mov bx, KERNEL_LOAD_OFFSET
+
+.load_kernel_loop:
+
+    ; calculate offset
+    mov ax, [kernel_cluster]
+    ;dec ax
+    ;dec ax                            ; ax = cluster - 2
+    ;mov cx, [bdb_sectors_per_cluster]
+    ;mul cx                            ; ax = (cluster - 2) * sectors_per_cluster
+    ;add ax, [bdb_reserved_sectors]    ; ax = (cluster - 2) * sectors_per_cluster + reserved_sectors
+    ;add ax, [number_of_fats]          ; ax = (cluster - 2) * sectors_per_cluster + reserved_sectors + number_of_fats
+    ;add ax, [root_dir_size]           ; ax = (cluster - 2) * sectors_per_cluster + reserved_sectors + number_of_fats + root_dir_size
+
+    add ax, 31
+
+    ; read cluster
+    mov cl, 1
+    mov dl, [ebr_drive_number]
+    call disk_read
+
+    add bx, [bdb_bytes_per_sector]
+
+    ; next cluster
+    mov ax, [kernel_cluster]
+    mov cx, 3
+    mul cx
+    mov cx, 2
+    div cx                             ; ax = cluster * 3 / 2
+                                       ; dx = cluster * 3 % 2
+
+    mov si, buffer
+    add si, ax
+    mov ax, [ds:si]                    ; ax = FAT entry
+
+    or dx, dx
+    jz .even 
+
+.odd:
+    shr ax, 4
+    jmp .next_cluster
+
+.even:
+    and ax, 0x0FFF
+
+.next_cluster:
+    cmp ax, 0x0FF8                     ; check for end of file
+    jae .read_finished
+
+    mov [kernel_cluster], ax
+    jmp .load_kernel_loop
+
+.read_finished:
+
+    ; jump to kernel
+    mov dl, [ebr_drive_number] ; boot device in dl
+
+    ; set segment registers
+    mov ax, KERNEL_LOAD_ADDRESS
+    mov ds, ax
+    mov es, ax
+
+    jmp KERNEL_LOAD_ADDRESS:KERNEL_LOAD_OFFSET
+    
+    jmp key_reboot
 
 ;
 ; Write a string to the screen
@@ -64,45 +235,17 @@ puts:
     pop ax
     ret
 
-main:
-    ; setup data segments
-    mov ax, 0
-    mov ds, ax
-    mov es, ax
-
-    ; setup stack
-    mov ss, ax
-    mov sp, 0x7C00
-
-    ; read from disk
-    ; BIOS puts the boot drive number in dl
-    mov [ebr_drive_number], dl
-
-    mov ax, 1                          ; LBA address
-    mov cl, 1                          ; number of sectors
-    mov bx, 0x7E00                     ; address after boot sector
-    call disk_read
-
-    ; print hello world
-    mov si, msg_hello
-    call puts
-
-    cli                                ; disable interrupts
-    hlt
-
 ;
 ; Error handling
 ;
-floppy_error:
-    mov si, msg_read_failed
-    call puts
 
+kernel_not_found_error:
+    mov si, msg_kernel_not_found
+    call puts
     jmp key_reboot
 
 key_reboot:
     mov ah, 0
-    mov si, msg_keypress
-    call puts
     int 0x16                           ; wait for key press
     jmp 0FFFFh:0                       ; jump to start of BIOS
 
@@ -184,7 +327,7 @@ disk_read:
     jnz .retry
 
 .error:
-    jmp floppy_error
+    jmp key_reboot
 
 .done:
     popa
@@ -207,15 +350,20 @@ disk_reset:
     mov ah, 0
     stc
     int 13h
-    jc floppy_error
+    jc key_reboot
 
     popa
     ret
 
-msg_hello: db "Hello, World!", ENDL, 0
-msg_read_failed: db "Read from disk failed!", ENDL, 0
-msg_keypress: db "Press any key to reboot...", ENDL, 0
+msg_loading:          db "Loading...",                 ENDL, 0
+msg_read_failed:      db "Read from disk failed!",     ENDL, 0
+msg_kernel_not_found: db "Kernel not found!",          ENDL, 0
+file_kernel_bin:      db "KERNEL  BIN",                      0
+kernel_cluster:       dw                                     0
+root_dir_size:        dw                                     0
 
 ; boot sector padding
 times 510-($-$$) db 0
 dw 0xAA55
+
+buffer:

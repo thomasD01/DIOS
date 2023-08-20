@@ -1,10 +1,19 @@
-org 0x7C00
+org 0x0
 bits 16
 
 %define ENDL 0x0D, 0x0A
 
 start:
-    jmp main
+    jmp main 
+
+main:
+
+    mov si, msg_hello
+    call puts
+
+.halt:
+    cli
+    hlt
 
 ;
 ; Write a string to the screen
@@ -33,24 +42,4 @@ puts:
     pop ax
     ret
 
-main:
-    ; setup data segments
-    mov ax, 0
-    mov ds, ax
-    mov es, ax
-
-    ; setup stack
-    mov ss, ax
-    mov sp, 0x7C00
-
-    hlt
-
-.halt:
-    jmp .halt
-
-
-msg_hello: db "Hello, World!", ENDL, 0
-
-; boot sector padding
-times 510-($-$$) db 0
-dw 0xAA55
+msg_hello: db "Hello, World! the bootloader works", ENDL, 0

@@ -1,1 +1,1 @@
-qemu-system-i386 -fda build/DIOS.img
+qemu-system-i386 -fda bin/DIOS.img

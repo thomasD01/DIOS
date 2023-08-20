@@ -1,0 +1,7 @@
+{
+  "files.associations": {
+    "*.sol": "solidity",
+    ".env*": "env",
+    "cmath": "cpp"
+  }
+}

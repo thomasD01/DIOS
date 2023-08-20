@@ -1,5 +1,7 @@
 ASM=nasm
-GCC=gcc
+CC=gcc
+CC16=wcc
+LD16=wlink
 
 SRC_DIR=src
 BIN_DIR=bin
@@ -16,17 +18,17 @@ image: $(BIN_DIR)/DIOS.img
 $(BIN_DIR)/DIOS.img: bootloader kernel
 	dd if=/dev/zero of=$(BIN_DIR)/DIOS.img bs=512 count=2880
 	mkfs.fat -F 12 -n "DIOS" $(BIN_DIR)/DIOS.img
-	dd if=$(BUILD_DIR)/bootloader.bin of=$(BIN_DIR)/DIOS.img conv=notrunc
+	dd if=$(BUILD_DIR)/boot.bin of=$(BIN_DIR)/DIOS.img conv=notrunc
+	mcopy -i $(BIN_DIR)/DIOS.img $(BUILD_DIR)/setup.bin "::setup.bin"
 	mcopy -i $(BIN_DIR)/DIOS.img $(BUILD_DIR)/kernel.bin "::kernel.bin"
 	mcopy -i $(BIN_DIR)/DIOS.img data/test.txt "::test.txt"
 
 #
 # Bootloader
 #
-bootloader: $(BUILD_DIR)/bootloader.bin
-
-$(BUILD_DIR)/bootloader.bin: always
-	$(ASM) $(SRC_DIR)/bootloader/boot.asm -f bin -o $(BUILD_DIR)/bootloader.bin
+bootloader: always
+	$(MAKE) -C $(SRC_DIR)/bootloader/boot BUILD_DIR=$(abspath $(BUILD_DIR)) ASM=$(ASM)
+	$(MAKE) -C $(SRC_DIR)/bootloader/setup BUILD_DIR=$(abspath $(BUILD_DIR)) ASM=$(ASM) CC16=$(CC16) LD16=$(LD16)
 
 #
 # Kernel
@@ -47,11 +49,12 @@ always:
 # Clean
 #
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR)/*
+	rm -rf $(BIN_DIR)/*
 
 #
 # Tools
 #
 
 tools:
-	$(GCC) tools/fat/fat.c -o $(BIN_DIR)/fat
+	$(CC) tools/fat/fat.c -o $(BIN_DIR)/fat

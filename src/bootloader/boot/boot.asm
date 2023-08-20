@@ -2,8 +2,8 @@ org 0x7C00
 bits 16
 
 %define ENDL 0x0D, 0x0A
-%define KERNEL_LOAD_ADDRESS 0x2000
-%define KERNEL_LOAD_OFFSET 0
+%define SETUP_LOAD_ADDRESS 0x2000
+%define SETUP_LOAD_OFFSET 0
 
 ;
 ; FAT12 Header
@@ -32,7 +32,7 @@ ebr_drive_number:               db 0
                                 db 0                  ; reserved
 ebr_signature:                  db 29h
 ebr_volume_id:                  dd 12h, 34h, 56h, 78h
-ebr_volume_label:               db "DIOS      "      ; 11 bytes
+ebr_volume_label:               db "DIOS       "      ; 11 bytes
 ebr_system_id:                  db "FAT12   "         ; 8 bytes 
 
 
@@ -104,33 +104,33 @@ start:
     mov bx, buffer                     ; es:bx = buffer address
     call disk_read
 
-    ; search for kernel.bin
+    ; search for setup.bin
     xor bx, bx
     mov di, buffer
 
-.search_kernel:
-    mov si, file_kernel_bin
+.search_setup:
+    mov si, file_setup_bin
     mov cx, 11
     push di
     repe cmpsb
     pop di
-    je .kernel_found
+    je .setup_found
 
     ; next entry
     add di, 32
     inc bx
     cmp bx, [bdb_dir_entries_count]
-    jl .search_kernel
+    jl .search_setup
 
-    ; kernel not found
-    jmp kernel_not_found_error
+    ; setup not found
+    jmp key_reboot
 
 
-.kernel_found:
+.setup_found:
 
     ; di = address to first cluster
     mov ax, [di + 26]
-    mov [kernel_cluster], ax
+    mov [setup_cluster], ax
 
     ; load FAT 
     mov ax, [bdb_reserved_sectors]
@@ -139,24 +139,17 @@ start:
     mov dl, [ebr_drive_number]
     call disk_read
 
-    ; load kernel
-    mov bx, KERNEL_LOAD_ADDRESS
+    ; load setup
+    mov bx, SETUP_LOAD_ADDRESS
     mov es, bx
-    mov bx, KERNEL_LOAD_OFFSET
+    mov bx, SETUP_LOAD_OFFSET
 
-.load_kernel_loop:
+.load_setup_loop:
 
     ; calculate offset
-    mov ax, [kernel_cluster]
-    ;dec ax
-    ;dec ax                            ; ax = cluster - 2
-    ;mov cx, [bdb_sectors_per_cluster]
-    ;mul cx                            ; ax = (cluster - 2) * sectors_per_cluster
-    ;add ax, [bdb_reserved_sectors]    ; ax = (cluster - 2) * sectors_per_cluster + reserved_sectors
-    ;add ax, [number_of_fats]          ; ax = (cluster - 2) * sectors_per_cluster + reserved_sectors + number_of_fats
-    ;add ax, [root_dir_size]           ; ax = (cluster - 2) * sectors_per_cluster + reserved_sectors + number_of_fats + root_dir_size
+    mov ax, [setup_cluster]
 
-    add ax, 31
+    add ax, 31 ; TODO: remove this hack
 
     ; read cluster
     mov cl, 1
@@ -166,7 +159,7 @@ start:
     add bx, [bdb_bytes_per_sector]
 
     ; next cluster
-    mov ax, [kernel_cluster]
+    mov ax, [setup_cluster]
     mov cx, 3
     mul cx
     mov cx, 2
@@ -191,20 +184,20 @@ start:
     cmp ax, 0x0FF8                     ; check for end of file
     jae .read_finished
 
-    mov [kernel_cluster], ax
-    jmp .load_kernel_loop
+    mov [setup_cluster], ax
+    jmp .load_setup_loop
 
 .read_finished:
 
-    ; jump to kernel
+    ; jump to setup
     mov dl, [ebr_drive_number] ; boot device in dl
 
     ; set segment registers
-    mov ax, KERNEL_LOAD_ADDRESS
+    mov ax, SETUP_LOAD_ADDRESS
     mov ds, ax
     mov es, ax
 
-    jmp KERNEL_LOAD_ADDRESS:KERNEL_LOAD_OFFSET
+    jmp SETUP_LOAD_ADDRESS:SETUP_LOAD_OFFSET
     
     jmp key_reboot
 
@@ -234,28 +227,6 @@ puts:
     pop bx
     pop ax
     ret
-
-;
-; Error handling
-;
-
-kernel_not_found_error:
-    mov si, msg_kernel_not_found
-    call puts
-    jmp key_reboot
-
-key_reboot:
-    mov ah, 0
-    int 0x16                           ; wait for key press
-    jmp 0FFFFh:0                       ; jump to start of BIOS
-
-.halt:
-    cli                                ; disable interrupts
-    jmp .halt
-
-;
-; Manipulating data on the Disk
-;
 
 
 ;
@@ -355,11 +326,13 @@ disk_reset:
     popa
     ret
 
+key_reboot:
+    mov ah, 0
+    int 16h
+
 msg_loading:          db "Loading...",                 ENDL, 0
-msg_read_failed:      db "Read from disk failed!",     ENDL, 0
-msg_kernel_not_found: db "Kernel not found!",          ENDL, 0
-file_kernel_bin:      db "KERNEL  BIN",                      0
-kernel_cluster:       dw                                     0
+file_setup_bin:       db "SETUP   BIN",                      0
+setup_cluster:        dw                                     0
 root_dir_size:        dw                                     0
 
 ; boot sector padding

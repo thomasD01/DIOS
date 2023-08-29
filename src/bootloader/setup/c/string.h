@@ -1,5 +1,5 @@
-#pragma once 
+#pragma once
 
-const char* strchr(const char* str, char c);
-char* strcpy(char* dest, const char* src);
+const char* strchr(const char* str, char chr);
+char* strcpy(char* dst, const char* src);
 unsigned strlen(const char* str);

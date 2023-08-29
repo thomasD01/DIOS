@@ -1,13 +1,13 @@
 {
   "files.associations": {
-    "*.sol": "solidity",
-    ".env*": "env",
-    "cmath": "cpp",
-    "array": "c",
-    "bitset": "c",
-    "string_view": "c",
-    "initializer_list": "c",
-    "utility": "c"
-  },
-  "C_Cpp.default.compilerPath": "/usr/bin/watcom/binl64/wcc"
+    "*.java": "java",
+    "*.env*": "env",
+    "*.prisma": "prisma",
+    "*.css": "css",
+    "x86.h": "c",
+    "stdio.h": "c",
+    "*.inc": "c",
+    "*.tcc": "c",
+    "buffer": "c"
+  }
 }

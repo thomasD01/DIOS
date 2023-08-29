@@ -12,9 +12,9 @@ include build_scripts/toolchain.mk
 image: $(BIN_DIR)/DIOS.img
 
 $(BIN_DIR)/DIOS.img: bootloader kernel
-	@dd if=/dev/zero of=$@ bs=512 count=2880 > /dev/null
-	@mkfs.fat -F 12 -n "DIOS" $@ > /dev/null
-	@dd if=$(BUILD_DIR)/boot.bin of=$@ conv=notrunc > /dev/null
+	@dd if=/dev/zero of=$@ bs=512 count=2880 >/dev/null
+	@mkfs.fat -F 12 -n "DIOS" $@ >/dev/null
+	@dd if=$(BUILD_DIR)/boot.bin of=$@ conv=notrunc >/dev/null
 	@mcopy -i $@ $(BUILD_DIR)/setup.bin "::setup.bin"
 	@mcopy -i $@ $(BUILD_DIR)/kernel.bin "::kernel.bin"
 	@mcopy -i $@ data/test.txt "::test.txt"

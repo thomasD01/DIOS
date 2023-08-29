@@ -2,56 +2,54 @@
 #include <stdint.h>
 #include <stddef.h>
 
-const char* strchr(const char* str, char c)
+const char* strchr(const char* str, char chr)
 {
-  if(str == NULL)
+    if (str == NULL)
+        return NULL;
+
+    while (*str)
+    {
+        if (*str == chr)
+            return str;
+
+        ++str;
+    }
+
     return NULL;
-
-  while(*str)
-  {
-    if(*str == c)
-      return str;
-
-    str++;
-  }
-
-  return NULL;
 }
 
-char* strcpy(char* dest, const char* src)
+char* strcpy(char* dst, const char* src)
 {
-  char *ret = dest;
+    char* origDst = dst;
 
-  if(dest == NULL)
-    return NULL;
+    if (dst == NULL)
+        return NULL;
 
-  if(src == NULL)
-  {
-    *dest = '\0';
-    return dest;
-  }
+    if (src == NULL)
+    {
+        *dst = '\0';
+        return dst;
+    }
 
-  while(*src)
-  {
-    *dest = *src;
-    dest++;
-    src++;
-  }
-
-  *dest = '\0';
-
-  return ret;
+    while (*src)
+    {
+        *dst = *src;
+        ++src;
+        ++dst;
+    }
+    
+    *dst = '\0';
+    return origDst;
 }
 
 unsigned strlen(const char* str)
 {
-  int len = 0;
+    unsigned len = 0;
+    while (*str)
+    {
+        ++len;
+        ++str;
+    }
 
-  while(*str)
-  {
-    ++len;
-    ++str;
-  }
-
-  return len;
+    return len;
 }

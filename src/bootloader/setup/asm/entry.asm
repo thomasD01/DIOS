@@ -10,38 +10,38 @@ global entry
 
 entry:
     cli
-    
+
     ; save boot drive
-    mov [g_bootDrive], dl
+    mov [g_BootDrive], dl
 
     ; setup stack
     mov ax, ds
     mov ss, ax
     mov sp, 0xFFF0
-    mov bp, sp 
+    mov bp, sp
 
-    ; switch to 32-bit protected mode
-    call EnableA20
-    call LoadGDT
+    ; switch to protected mode
+    call EnableA20          ; 2 - Enable A20 gate
+    call LoadGDT            ; 3 - Load GDT
 
-    ; set protected mode bit in cr0
+    ; 4 - set protection enable flag in CR0
     mov eax, cr0
     or al, 1
     mov cr0, eax
-    
-    ; far jump to 32-bit code
+
+    ; 5 - far jump into protected mode
     jmp dword 08h:.pmode
 
-; 32-bit code
 .pmode:
+    ; we are now in protected mode!
     [bits 32]
-
-    ; segment registers
+    
+    ; 6 - setup segment registers
     mov ax, 0x10
     mov ds, ax
     mov ss, ax
-
-    ; clear bss
+   
+    ; clear bss (uninitialized data)
     mov edi, __bss_start
     mov ecx, __end
     sub ecx, edi
@@ -49,20 +49,18 @@ entry:
     cld
     rep stosb
 
-    ; boot drive in dl, call start
+    ; expect boot drive in dl, send it as argument to cstart function
     xor edx, edx
-    mov dl, [g_bootDrive]
+    mov dl, [g_BootDrive]
     push edx
     call start
 
-    ; hang
     cli
     hlt
 
-; enable a20
+
 EnableA20:
     [bits 16]
-
     ; disable keyboard
     call A20WaitInput
     mov al, KbdControllerDisableKeyboard
@@ -70,23 +68,21 @@ EnableA20:
 
     ; read control output port
     call A20WaitInput
-    mov al, KbdControllerReadControlOutputPort
+    mov al, KbdControllerReadCtrlOutputPort
     out KbdControllerCommandPort, al
 
-    ; wait for output
     call A20WaitOutput
     in al, KbdControllerDataPort
     push eax
 
     ; write control output port
     call A20WaitInput
-    mov al, KbdControllerWriteControlOutputPort
+    mov al, KbdControllerWriteCtrlOutputPort
     out KbdControllerCommandPort, al
-
-    ; write output
+    
     call A20WaitInput
     pop eax
-    or al, 2
+    or al, 2                                    ; bit 2 = A20 bit
     out KbdControllerDataPort, al
 
     ; enable keyboard
@@ -94,13 +90,14 @@ EnableA20:
     mov al, KbdControllerEnableKeyboard
     out KbdControllerCommandPort, al
 
-    ; wait for input buffer empty
     call A20WaitInput
     ret
 
+
 A20WaitInput:
     [bits 16]
-    ; wait until input buffer can be read
+    ; wait until status bit 2 (input buffer) is 0
+    ; by reading from command port, we read status byte
     in al, KbdControllerCommandPort
     test al, 2
     jnz A20WaitInput
@@ -108,64 +105,65 @@ A20WaitInput:
 
 A20WaitOutput:
     [bits 16]
-    ; wait until output buffer can be written
+    ; wait until status bit 1 (output buffer) is 1 so it can be read
     in al, KbdControllerCommandPort
     test al, 1
     jz A20WaitOutput
     ret
 
+
 LoadGDT:
     [bits 16]
-    ; load gdt
-    lgdt [g_gdtDescriptor]
+    lgdt [g_GDTDesc]
     ret
+
+
 
 KbdControllerDataPort               equ 0x60
 KbdControllerCommandPort            equ 0x64
 KbdControllerDisableKeyboard        equ 0xAD
 KbdControllerEnableKeyboard         equ 0xAE
-KbdControllerReadControlOutputPort  equ 0xD0
-KbdControllerWriteControlOutputPort equ 0xD1
+KbdControllerReadCtrlOutputPort     equ 0xD0
+KbdControllerWriteCtrlOutputPort    equ 0xD1
 
 ScreenBuffer                        equ 0xB8000
 
-g_gdt:
-    dq 0
+g_GDT:      ; NULL descriptor
+            dq 0
 
-    ; 32 bit code segment
-    dw 0xFFFF               ; limit to full 32 bits
-    dw 0                    ; base bits 0-15
-    db 0                    ; base bits 16-23
-    db 10011010b            ; access
-    db 11001111b            ; granularity
-    db 0                    ; base high
+            ; 32-bit code segment
+            dw 0FFFFh                   ; limit (bits 0-15) = 0xFFFFF for full 32-bit range
+            dw 0                        ; base (bits 0-15) = 0x0
+            db 0                        ; base (bits 16-23)
+            db 10011010b                ; access (present, ring 0, code segment, executable, direction 0, readable)
+            db 11001111b                ; granularity (4k pages, 32-bit pmode) + limit (bits 16-19)
+            db 0                        ; base high
 
-    ; 32 bit data segment
-    dw 0xFFFF               ; limit to full 32 bits
-    dw 0                    ; base bits 0-15
-    db 0                    ; base bits 16-23
-    db 10010010b            ; access
-    db 11001111b            ; granularity
-    db 0                    ; base high
+            ; 32-bit data segment
+            dw 0FFFFh                   ; limit (bits 0-15) = 0xFFFFF for full 32-bit range
+            dw 0                        ; base (bits 0-15) = 0x0
+            db 0                        ; base (bits 16-23)
+            db 10010010b                ; access (present, ring 0, data segment, executable, direction 0, writable)
+            db 11001111b                ; granularity (4k pages, 32-bit pmode) + limit (bits 16-19)
+            db 0                        ; base high
 
-    ; 16 bit code segment
-    dw 0xFFFF               ; limit
-    dw 0                    ; base bits 0-15
-    db 0                    ; base bits 16-23
-    db 10011010b            ; access
-    db 00001111b            ; granularity
-    db 0                    ; base high
+            ; 16-bit code segment
+            dw 0FFFFh                   ; limit (bits 0-15) = 0xFFFFF
+            dw 0                        ; base (bits 0-15) = 0x0
+            db 0                        ; base (bits 16-23)
+            db 10011010b                ; access (present, ring 0, code segment, executable, direction 0, readable)
+            db 00001111b                ; granularity (1b pages, 16-bit pmode) + limit (bits 16-19)
+            db 0                        ; base high
 
-    ; 16 bit data segment
-    dw 0xFFFF               ; limit
-    dw 0                    ; base bits 0-15
-    db 0                    ; base bits 16-23
-    db 10010010b            ; access
-    db 00001111b            ; granularity
-    db 0                    ; base high
+            ; 16-bit data segment
+            dw 0FFFFh                   ; limit (bits 0-15) = 0xFFFFF
+            dw 0                        ; base (bits 0-15) = 0x0
+            db 0                        ; base (bits 16-23)
+            db 10010010b                ; access (present, ring 0, data segment, executable, direction 0, writable)
+            db 00001111b                ; granularity (1b pages, 16-bit pmode) + limit (bits 16-19)
+            db 0                        ; base high
 
-g_gdtDescriptor:
-    dw g_gdtDescriptor - g_gdt - 1 ; size of gdt
-    dd g_gdt                       ; address of gdt
+g_GDTDesc:  dw g_GDTDesc - g_GDT - 1    ; limit = size of GDT
+            dd g_GDT                    ; address of GDT
 
-g_bootDrive: db 0
+g_BootDrive: db 0

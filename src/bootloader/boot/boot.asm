@@ -30,7 +30,7 @@ ebr_drive_number:           db 0                    ; 0x00 floppy, 0x80 hdd, use
                             db 0                    ; reserved
 ebr_signature:              db 29h
 ebr_volume_id:              db 12h, 34h, 56h, 78h   ; serial number, value doesn't matter
-ebr_volume_label:           db 'NANOBYTE OS'        ; 11 bytes, padded with spaces
+ebr_volume_label:           db 'DIOS       '        ; 11 bytes, padded with spaces
 ebr_system_id:              db 'FAT12   '           ; 8 bytes
 
 ;
@@ -106,27 +106,27 @@ start:
     mov bx, buffer                      ; es:bx = buffer
     call disk_read
 
-    ; search for kernel.bin
+    ; search for setup.bin
     xor bx, bx
     mov di, buffer
 
-.search_kernel:
+.search_setup:
     mov si, file_setup_bin
     mov cx, 11                          ; compare up to 11 characters
     push di
     repe cmpsb
     pop di
-    je .found_kernel
+    je .found_setup
 
     add di, 32
     inc bx
     cmp bx, [bdb_dir_entries_count]
-    jl .search_kernel
+    jl .search_setup
 
-    ; kernel not found
-    jmp kernel_not_found_error
+    ; setup not found
+    jmp setup_not_found_error
 
-.found_kernel:
+.found_setup:
 
     ; di should have the address to the entry
     mov ax, [di + 26]                   ; first logical cluster field (offset 26)
@@ -139,12 +139,12 @@ start:
     mov dl, [ebr_drive_number]
     call disk_read
 
-    ; read kernel and process FAT chain
+    ; read setup and process FAT chain
     mov bx, SETUP_LOAD_SEGMENT
     mov es, bx
     mov bx, SETUP_LOAD_OFFSET
 
-.load_kernel_loop:
+.load_setup_loop:
     
     ; Read next cluster
     mov ax, [setup_cluster]
@@ -184,11 +184,11 @@ start:
     jae .read_finish
 
     mov [setup_cluster], ax
-    jmp .load_kernel_loop
+    jmp .load_setup_loop
 
 .read_finish:
     
-    ; jump to our kernel
+    ; jump to our setup
     mov dl, [ebr_drive_number]          ; boot device in dl
 
     mov ax, SETUP_LOAD_SEGMENT         ; set segment registers
@@ -212,7 +212,7 @@ floppy_error:
     call puts
     jmp wait_key_and_reboot
 
-kernel_not_found_error:
+setup_not_found_error:
     mov si, msg_setup_not_found
     call puts
     jmp wait_key_and_reboot

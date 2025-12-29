@@ -9,5 +9,6 @@
     "*.inc": "c",
     "*.tcc": "c",
     "buffer": "c"
-  }
+  },
+  "makefile.makefilePath": "./Makefile"
 }

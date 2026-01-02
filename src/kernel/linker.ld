@@ -1,16 +1,25 @@
-ENTRY(start)
-OUTPUT_FORMAT("binary")
-phys = 0x00100000;
+ENTRY(_start)
 
 SECTIONS
 {
-    . = phys;
+    /* We want to be loaded at 1MB physical */
+    . = 0x100000;
 
-    .entry              : { __entry_start = .;      *(.entry)   }
-    .text               : { __text_start = .;       *(.text)    }
-    .data               : { __data_start = .;       *(.data)    }
-    .rodata             : { __rodata_start = .;     *(.rodata)  }
-    .bss                : { __bss_start = .;        *(.bss)     }
-    
-    __end = .;
+    .text : {
+        *(.text)
+    }
+
+    . = ALIGN(0x1000);
+
+    .rodata : {
+        *(.rodata)
+    }
+
+    .data : {
+        *(.data)
+    }
+
+    .bss : {
+        *(.bss)
+    }
 }

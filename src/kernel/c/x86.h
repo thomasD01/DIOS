@@ -1,6 +1,7 @@
 #pragma once
-#include <stdint.h>
-#include <stdbool.h>
 
-void __attribute__((cdecl)) x86_outb(uint16_t port, uint8_t value);
-uint8_t __attribute__((cdecl)) x86_inb(uint16_t port);
+extern void x86_outb(uint16_t port, uint8_t val);
+extern uint8_t x86_inb(uint16_t port);
+extern void x86_halt(void);
+extern void x86_cli(void);
+extern void x86_sti(void);

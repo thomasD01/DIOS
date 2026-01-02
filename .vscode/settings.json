@@ -1,14 +1,4 @@
 {
-  "files.associations": {
-    "*.java": "java",
-    "*.env*": "env",
-    "*.prisma": "prisma",
-    "*.css": "css",
-    "x86.h": "c",
-    "stdio.h": "c",
-    "*.inc": "c",
-    "*.tcc": "c",
-    "buffer": "c"
-  },
-  "makefile.makefilePath": "./Makefile"
+  "makefile.makefilePath": "Makefile",
+  "cmake.ignoreCMakeListsMissing": true
 }

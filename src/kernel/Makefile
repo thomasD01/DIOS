@@ -1,32 +1,40 @@
-TARGET_ASMFLAGS += -f elf
-TARGET_CFLAGS += -ffreestanding -nostdlib
-TARGET_LIBS += -lgcc
-TARGET_LINKFLAGS += -T linker.ld -nostdlib
+
+BUILD_DIR=$(BUILD_ROOT)/kernel
+
+TARGET_CC=$(TOOLCHAIN_ROOT)/bin/x86_64-elf-gcc
+TARGET_LD=$(TOOLCHAIN_ROOT)/bin/x86_64-elf-ld
 
 SOURCES_C=$(wildcard c/*.c)
-SOURCES_ASM=$(wildcard asm/*.asm)
-OBJECTS_C=$(patsubst %.c, $(BUILD_DIR)/kernel/%.obj, $(SOURCES_C))
-OBJECTS_ASM=$(patsubst %.asm, $(BUILD_DIR)/kernel/%.obj, $(SOURCES_ASM))
+SOURCES_ASM=$(wildcard asm/*.S)
+OBJECTS_C=$(patsubst %.c, $(BUILD_DIR)/%.o, $(SOURCES_C))
+OBJECTS_ASM=$(patsubst %.S, $(BUILD_DIR)/%.o, $(SOURCES_ASM))
 
 .PHONY: all
 
-all: $(BUILD_DIR)/kernel.bin
+all: clean kernel.elf
+	@echo "Kernel build completed!"
 
-$(BUILD_DIR)/kernel.bin: $(OBJECTS_ASM) $(OBJECTS_C)
-	@$(TARGET_LD) $(TARGET_LINKFLAGS) -Wl,-Map=$(BUILD_DIR)/kernel.map -o $@ $^ $(TARGET_LIBS)
-	@echo "Kernel compiled successfully!"
+kernel.elf: $(BUILD_DIR)/kernel.elf
 
-$(BUILD_DIR)/kernel/asm/%.obj: asm/%.asm always
-	@mkdir -p $(@D)
-	@$(TARGET_ASM) $(TARGET_ASMFLAGS) -o $@ $<
-	@echo "Compiled $< successfully!"
+$(BUILD_DIR)/kernel.elf: $(OBJECTS_ASM) $(OBJECTS_C)
+	@$(TARGET_LD) $^ -n -T linker.ld -o $@ 
+	@echo "Linking kernel completed successfully!"
 
-$(BUILD_DIR)/kernel/c/%.obj: c/%.c always
-	@mkdir -p $(@D)
-	@$(TARGET_CC) $(TARGET_CFLAGS) -c -o $@ $<
-	@echo "Compiled $< successfully!"
+clean:
+	@rm -rf $(BUILD_DIR)
+	@echo "Cleaned kernel build directory."
 
 always:
-	@mkdir -p $(BUILD_DIR)/kernel
-	@mkdir -p $(BUILD_DIR)/kernel/asm
-	@mkdir -p $(BUILD_DIR)/kernel/c
+	@mkdir -p $(BUILD_DIR)
+	@mkdir -p $(dir $(OBJECTS_C))
+	@mkdir -p $(dir $(OBJECTS_ASM))
+
+$(BUILD_DIR)/asm/%.o: asm/%.S
+	@mkdir -p $(dir $@)
+	@$(TARGET_CC) $< -c -o $@
+	@echo "Compiled $< successfully!"
+
+$(BUILD_DIR)/c/%.o: c/%.c
+	@mkdir -p $(dir $@)
+	@$(TARGET_CC) $< -ffreestanding -mno-red-zone -fno-stack-protector -c -I $(LIB_ROOT)/gnu-efi/inc -I $(LIB_ROOT)/gnu-efi/inc/x86_64 -I ./include -o $@
+	@echo "Compiled $< successfully!"

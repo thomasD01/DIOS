@@ -1,51 +1,38 @@
-include build_scripts/config.mk
+# global makefile
 
-.PHONY: all image bootloader kernel clean always
+export BUILD_ROOT = $(abspath build)
+export BIN_DIR = $(abspath bin)
+export TOOLCHAIN_ROOT = $(abspath toolchain/build_toolchain/install)
+export LIB_ROOT = $(abspath lib)
 
-all: image
+export PATH := $(TOOLCHAIN_ROOT)/bin:$(PATH)
 
-include build_scripts/toolchain.mk
+BINUTILS_VERSION = 2.45
+BINUTILS_URL = https://ftp.gnu.org/gnu/binutils/binutils-$(BINUTILS_VERSION).tar.xz
 
-#
-# Image
-#
-image: $(BIN_DIR)/DIOS.img
+GCC_VERSION = 15.2.0
+GCC_URL = https://ftp.gnu.org/gnu/gcc/gcc-$(GCC_VERSION)/gcc-$(GCC_VERSION).tar.xz
 
-$(BIN_DIR)/DIOS.img: bootloader kernel
-	@dd if=/dev/zero of=$@ bs=512 count=2880 >/dev/null
-	@mkfs.fat -F 12 -n "DIOS" $@ >/dev/null
-	@dd if=$(BUILD_DIR)/boot.bin of=$@ conv=notrunc >/dev/null
-	@mcopy -i $@ $(BUILD_DIR)/setup.bin "::setup.bin"
-	@mcopy -i $@ $(BUILD_DIR)/kernel.bin "::kernel.bin"
-	@mcopy -i $@ data/test.txt "::test.txt"
-	@mmd -i $@ "::mydir"
-	@mcopy -i $@ data/test.txt "::mydir/test.txt"
+.PHONY: all
 
-#
-# Bootloader
-#
-bootloader: always
-	@$(MAKE) -C src/bootloader/boot BUILD_DIR=$(abspath $(BUILD_DIR))
-	@$(MAKE) -C src/bootloader/setup BUILD_DIR=$(abspath $(BUILD_DIR))
+all: clean bootloader kernel
 
-#
-# Kernel
-#
-kernel: $(BUILD_DIR)/kernel.bin
+toolchain: toolchain/build_toolchain
 
-$(BUILD_DIR)/kernel.bin: always
-	@$(MAKE) -C src/kernel BUILD_DIR=$(abspath $(BUILD_DIR))
+toolchain/build_toolchain:
+	@mkdir -p toolchain/build_toolchain
+	@cd toolchain/build_toolchain && cmake .. && cmake --build .
 
-#
-# Always
-#
-always:
-	@mkdir -p $(BUILD_DIR)
-	@mkdir -p $(BIN_DIR)
+lib:
+	@$(MAKE) -C $(LIB_ROOT)/gnu-efi
+	@echo "Libraries built successfully!"
 
-#
-# Clean
-#
+bootloader: lib
+	$(MAKE) -C src/boot efi
+
+kernel: lib
+	$(MAKE) -C src/kernel kernel.elf
+
+
 clean:
-	@rm -rf $(BUILD_DIR)/*
-	@rm -rf $(BIN_DIR)/*
+	rm -rf $(BUILD_ROOT)

@@ -1,0 +1,95 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build Toolchain",
+      "type": "shell",
+      "command": "./scripts/build_toolchain.sh",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake Configure",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-S",
+        ".",
+        "-B",
+        "build",
+        "-DCMAKE_TOOLCHAIN_FILE=${workspaceFolder}/toolchain/build_toolchain/toolchain.cmake"
+      ],
+      "group": "build",
+      "detail": "Generates the Makefiles. Runs once (or when you change CMakeLists)."
+    },
+    {
+      "label": "Build",
+      "type": "shell",
+      "command": "make",
+      "group": "build",
+      "problemMatcher": "$gcc",
+      "detail": "Compiles the Bootloader and Kernel using GNU Make"
+    },
+    {
+      "label": "Build Disk Image",
+      "type": "shell",
+      "command": "./scripts/build_disk.sh",
+      "dependsOn": "Build",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run QEMU",
+      "type": "shell",
+      "command": "qemu-system-x86_64",
+      "args": [
+        "-cpu",
+        "qemu64",
+        "-drive",
+        "if=pflash,format=raw,unit=0,file=/usr/share/ovmf/OVMF.fd,readonly=on",
+        "-drive",
+        "format=raw,file=fat:rw:build/iso/efi",
+        "-serial",
+        "stdio",
+        "-net",
+        "none"
+      ],
+      "dependsOn": "Build Disk Image",
+      "group": {
+        "kind": "test"
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Run QEMU (UEFI-RUN)",
+      "type": "shell",
+      "command": "uefi-run",
+      "args": [
+        "-b",
+        "/usr/share/ovmf/OVMF.fd",
+        "-q",
+        "/usr/bin/qemu-system-x86_64",
+        "build/iso/efi",
+        "--",
+        "-serial",
+        "stdio"
+      ],
+      "dependsOn": "Build Disk Image",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared"
+      }
+    }
+  ]
+}

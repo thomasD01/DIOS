@@ -2,10 +2,12 @@
 #include <stdbool.h>
 
 #include "stdio.h"
-#include "graphics.h"
+#include "console/console.h"
+#include "x86.h"
 
-void clrscr() {
-    kclear_screen(0x000000); // Black color
+void clrscr() 
+{
+	kconsole_clear(0x000000); // Black color
 }
 
 void printf(const char* fmt, ...)
@@ -77,4 +79,55 @@ void printf(const char* fmt, ...)
 	buffer[len] = '\0';
 
 	kprint_str(buffer, 0xFFFFFF);
+}
+
+void serial_print(const char* s) {
+	while (*s) {
+		x86_outb(0x3F8, *s++);
+  }
+}
+
+
+void serial_println(const char* s) {
+	serial_print(s);
+	x86_outb(0x3F8, '\n');
+}
+
+
+void serial_print_dec(uint64_t n)
+{
+	uint64_t num = n;
+	char buffer[20];
+	int len = 0;
+	if (num == 0)
+	{
+		buffer[len++] = '0';
+	} else if (num < 0)
+	{
+		buffer[len++] = '-';
+		num = -num;
+	} else
+	{
+		while (num > 0)
+		{
+			buffer[len++] = '0' + (num % 10);
+			num /= 10;
+		}
+	}
+
+	char ret[len];
+
+	for (int i = 0; i < len; i++)
+	{
+		ret[i] = buffer[len - i - 1];
+	}
+
+	serial_print(ret);
+}
+
+void serial_print_hex(uint64_t n) {
+  const char* chars = "0123456789ABCDEF";
+  for(int i = 60; i >= 0; i -= 4) {
+    x86_outb(0x3F8, chars[(n >> i) & 0xF]);
+  }
 }

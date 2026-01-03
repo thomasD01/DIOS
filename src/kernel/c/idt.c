@@ -3,7 +3,7 @@
 #include "idt.h"
 #include "x86.h"
 #include "stdio.h"
-#include "graphics.h"
+#include "console/console.h"
 
 // Define the table (256 entries)
 struct IDTEntry idt[256];
@@ -39,7 +39,7 @@ void idt_init() {
 }
 
 void exception_handler(Registers* regs) {
-  kclear_screen(0x0000008B);
+  kconsole_clear(0x0000008B);
   printf("!!! KERNEL PANIC !!!\n");
   printf("Interrupt: %d  Error Code: %x\n", regs->int_no, regs->err_code);
   printf("RIP: %lx\n", regs->rip);

@@ -2,6 +2,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct IDTEntry {
     uint16_t offset_low;    // Lower 16 bits of handler function address
     uint16_t selector;      // Kernel segment selector
@@ -37,3 +41,7 @@ extern void isr6();
 extern void isr8();
 extern void isr13();
 extern void isr14();
+
+#ifdef __cplusplus
+}
+#endif

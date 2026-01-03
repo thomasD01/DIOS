@@ -1,6 +1,10 @@
 #pragma once
 #include <efi.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct __attribute__((packed)) {
     // Memory Map Info
     EFI_MEMORY_DESCRIPTOR* mMap;
@@ -20,3 +24,7 @@ typedef struct __attribute__((packed)) {
 } BootInfo;
 
 extern BootInfo* gBootInfo;
+
+#ifdef __cplusplus
+}
+#endif

@@ -8,16 +8,20 @@ extern "C" {
 typedef struct __attribute__((packed)) {
     // Memory Map Info
     EFI_MEMORY_DESCRIPTOR* mMap;
-    UINTN mMapSize;
-    UINTN mMapDescriptorSize;
+    uint64_t mMapSize;
+    uint64_t mMapDescriptorSize;
 
     // Graphics Info (GOP)
-    UINT64 FrameBufferBase;
-    UINT64 FrameBufferSize;
-    UINT32 ScreenWidth;
-    UINT32 ScreenHeight;
-    UINT32 PixelsPerScanLine;
-    UINT8 PixelFormat;
+    uint64_t FrameBufferBase;
+    uint64_t FrameBufferSize;
+    uint32_t ScreenWidth;
+    uint32_t ScreenHeight;
+    uint32_t PixelsPerScanLine;
+    uint8_t PixelFormat;
+
+    // ramdisk info
+    void* RamdiskBase;
+    uint64_t RamdiskSize;
     
     // // Runtime Services
     EFI_RUNTIME_SERVICES* RuntimeServices;

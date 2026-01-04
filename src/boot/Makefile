@@ -40,5 +40,5 @@ $(BUILD_DIR)/asm/%.o: asm/%.S always
 
 $(BUILD_DIR)/c/%.o: c/%.c always
 	@mkdir -p $(dir $@)
-	@$(TARGET_CC) $< -c -fno-stack-protector -ffreestanding -fpic -fshort-wchar -mno-red-zone -I $(LIB_ROOT)/gnu-efi/inc -I $(LIB_ROOT)/gnu-efi/inc/x86_64 -DEFI_FUNCTION_WRAPPER -o $@
+	@$(TARGET_CC) $< -c -fno-stack-protector -ffreestanding -fpic -fshort-wchar -mno-red-zone -I $(LIB_ROOT)/gnu-efi/inc -I $(LIB_ROOT)/gnu-efi/inc/x86_64 -I ../kernel/include -DEFI_FUNCTION_WRAPPER -o $@
 	@echo "Compiled $< successfully!"

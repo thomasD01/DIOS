@@ -9,10 +9,12 @@ FAT_IMG="${BUILD_DIR}/fat.img"
 
 BOOTLOADER="${BUILD_DIR}/boot/BOOTX64.EFI"
 KERNEL="${BUILD_DIR}/kernel/kernel.elf"
+SYSROOT="${BUILD_DIR}/data/rootfs.tar"
 
 mkdir -p "${ISO_DIR}/efi/EFI/BOOT"
 cp "${BOOTLOADER}" "${ISO_DIR}/efi/EFI/BOOT/BOOTX64.EFI"
 cp "${KERNEL}" "${ISO_DIR}/efi/kernel.elf"
+cp "${SYSROOT}" "${ISO_DIR}/efi/rootfs.tar"
 
 # mkdir -p $ISO_DIR
 # rm -f $DISK_IMG

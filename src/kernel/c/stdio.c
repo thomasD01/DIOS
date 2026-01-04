@@ -64,6 +64,27 @@ void printf(const char* fmt, ...)
 			{
 				char c = (char)va_arg(args, int);
 				buffer[len++] = c;
+			} else if (*p == 'x')
+			{
+				unsigned int num = va_arg(args, unsigned int);
+				char hex_chars[] = "0123456789ABCDEF";
+				char hex_buffer[20];
+				int hex_len = 0;
+				if (num == 0)
+				{
+					hex_buffer[hex_len++] = '0';
+				} else
+				{
+					while (num > 0)
+					{
+						hex_buffer[hex_len++] = hex_chars[num & 0xF];
+						num >>= 4;
+					}
+				}
+				for (int i = hex_len - 1; i >= 0; i--)
+				{
+						buffer[len++] = hex_buffer[i];
+				}
 			} else
 			{
 				buffer[len++] = '%';

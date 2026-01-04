@@ -2,25 +2,9 @@
 #include <efilib.h>
 
 #include "elf.h"
+#include "bootinfo.h"
 
 #define kernel_load_address 0x100000
-
-typedef struct __attribute__((packed)) {
-    // Memory Map Info
-    EFI_MEMORY_DESCRIPTOR* mMap;
-    UINTN mMapSize;
-    UINTN mMapDescriptorSize;
-
-    // Graphics Info (GOP)
-    void* FrameBufferBase;
-    UINT64 FrameBufferSize;
-    UINT32 ScreenWidth;
-    UINT32 ScreenHeight;
-    UINT32 PixelsPerScanLine;
-    UINT8 PixelFormat;
-    
-    EFI_RUNTIME_SERVICES* RuntimeServices;
-} BootInfo;
 
 typedef void (*KernelEntryFunc)(void* BootInfo);
 
@@ -41,7 +25,7 @@ void JumpToKernel(Elf64_Addr EntryPoint, BootInfo* BootInfo) {
 EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
     InitializeLib(ImageHandle, SystemTable);
     
-    Print(L"Hello World from GNU-EFI!\n");
+    Print(L"-----DIOS KERNEL-----\n");
     EFI_STATUS status;
 
     // open root directory
@@ -113,6 +97,37 @@ EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTabl
         }
     }
 
+    FreePool(PHdrs);
+
+    // read rootfs as ramdisk
+    EFI_FILE_HANDLE ramdisk_file;
+    status = uefi_call_wrapper(root_dir->Open, 5, root_dir, &ramdisk_file, L"rootfs.tar", EFI_FILE_MODE_READ, 0);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to open rootfs.tar\n");
+        return status;
+    }
+
+    void* ramdisk_base;
+    UINTN ramdisk_size;
+
+    EFI_FILE_INFO* file_info = LibFileInfo(ramdisk_file);
+    ramdisk_size = (UINTN)file_info->FileSize;
+    FreePool(file_info);
+
+    Print(L"Loading ramdisk of size %d bytes\n", ramdisk_size);
+
+    status = uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, ramdisk_size, (void**)&ramdisk_base);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to allocate pool for ramdisk\n");
+        return status;
+    }
+
+    status = uefi_call_wrapper(ramdisk_file->Read, 3, ramdisk_file, &ramdisk_size, ramdisk_base);
+    if (EFI_ERROR(status)) {
+        Print(L"Failed to read ramdisk\n");
+        return status;
+    }
+
     // create bootinfo structure
     BootInfo boot_info;
     status = uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3, EfiLoaderData, sizeof(BootInfo), (void**)&boot_info);
@@ -121,6 +136,8 @@ EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTabl
         return status;
     }
     boot_info.RuntimeServices = SystemTable->RuntimeServices;
+    boot_info.RamdiskBase = ramdisk_base;
+    boot_info.RamdiskSize = ramdisk_size;
 
     // get graphics info (GOP)
     EFI_GUID gop_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
@@ -131,12 +148,18 @@ EFI_STATUS EFIAPI efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTabl
         return gop_status;
     }
 
-    boot_info.FrameBufferBase = (void*) gop->Mode->FrameBufferBase;
+    boot_info.FrameBufferBase = gop->Mode->FrameBufferBase;
     boot_info.FrameBufferSize = gop->Mode->FrameBufferSize;
     boot_info.ScreenWidth = gop->Mode->Info->HorizontalResolution;
     boot_info.ScreenHeight = gop->Mode->Info->VerticalResolution;
     boot_info.PixelsPerScanLine = gop->Mode->Info->PixelsPerScanLine;
     boot_info.PixelFormat = gop->Mode->Info->PixelFormat;
+
+    Print(L"Framebuffer: 0x%lx, Size: %d bytes\n", 
+        boot_info.FrameBufferBase, boot_info.FrameBufferSize);
+    Print(L"Resolution: %dx%d, PPL: %d, PixelFormat: %d\n", 
+        boot_info.ScreenWidth, boot_info.ScreenHeight, 
+        boot_info.PixelsPerScanLine, boot_info.PixelFormat);
 
     // exit boot services
     UINTN map_key;

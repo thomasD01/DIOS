@@ -8,6 +8,8 @@
 #include "console/console.h"
 #include "console/shell.hpp"
 #include "graphics/framebuffer.h"
+#include "filesystem/ramfs/vfs.h"
+#include "dev/pci/pci.h"
 
 BootInfo* gBootInfo = NULL;
 Shell* global_shell;
@@ -38,12 +40,15 @@ extern "C" void kernel_main(BootInfo* boot_info) {
   printf("console width: %d characters\n", console_width);
   printf("console height: %d characters\n", console_height);
 
+  printf("ramdisk, base: %d, size: %d bytes\n", 
+         (uint64_t)boot_info->RamdiskBase, 
+         boot_info->RamdiskSize);
+
   global_shell = new Shell();
   global_shell->init();
 
-  for (size_t i=0; i<100; i++) {
-    printf("Filling test %d/100\n", i);
-  }
+  vfs_list_files(boot_info);
+  pci_init();
 
   while(1) {
     global_shell->update();

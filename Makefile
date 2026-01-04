@@ -15,7 +15,7 @@ GCC_URL = https://ftp.gnu.org/gnu/gcc/gcc-$(GCC_VERSION)/gcc-$(GCC_VERSION).tar.
 
 .PHONY: all
 
-all: clean bootloader kernel
+all: clean bootloader kernel sysroot
 
 toolchain: toolchain/build_toolchain
 
@@ -33,6 +33,8 @@ bootloader: lib
 kernel: lib
 	$(MAKE) -C src/kernel kernel.elf
 
+sysroot:
+	$(MAKE) -C data sysroot
 
 clean:
 	rm -rf $(BUILD_ROOT)
